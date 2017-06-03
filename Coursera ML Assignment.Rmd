@@ -1,0 +1,136 @@
+---
+title: "Coursera Machine Learning Project"
+author: "Satish Hariharan"
+date: "May 31, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, results = 'hold')
+```
+
+## Executive Summary
+
+This document presents the results of the Practical Machine Learning Peer Assessments in a report using a single R markdown document that can be processed by knitr and be transformed into an HTML file.
+
+Since we have a data set with to many columns and we need make a class prediction, we decide implement a random forests model, that's no need cross-validation or a separate test set to get an unbiased estimate of the test set error. Before apply the dataset to our prediction modelo, we decide remove all the columns that having less than 60% of data filled, instead try to filled it with some center measure. Our model accuracy over validation dataset is equal to 99.9235%. This model promoted a excelente prediction results with our testing dataset and generated the 20th files answers to submit for the Assignments. The Assignments returned to us that he 20th files answers as being correct!
+
+## Prepare the Environment
+We install the Caret and RandomForest packages which will be used for prediction.
+
+```{r }
+library(caret)
+library(randomForest)
+```
+
+## Loading Data
+
+We load the data from the given web links directly on to our workspace.
+```{r}
+URL1 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+URL2 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+filename1 <- "pml-training.csv"
+filename2 <- "pml-testing.csv"
+
+#Downloading files
+download.file(url=URL1, destfile=filename1,method="curl")
+download.file(url=URL2, destfile=filename2,method="curl")
+
+#NA Handling steps
+training <- read.csv("pml-training.csv",header=TRUE, sep=",", na.strings=c("NA",""))
+testing <- read.csv("pml-testing.csv",header=TRUE, sep=",", na.strings=c("NA",""))
+```
+
+## Cleaning Data
+Since we choose a random forest model and we have a data set with to many columns, first we check if we have many problems with columns without data. If it's the case we decide remove all the columns that having less than 60% of data filled, instead try to filled with some center measure.
+
+```{r}
+appropriate <- c((colSums(!is.na(training[,-ncol(training)])) >= 0.6*nrow(training)))
+training   <-  training[,appropriate]
+
+```
+
+##Create Data Partitions
+We use the caret data partition function to create the training and validating set.
+
+```{r}
+inTrain <-  createDataPartition(training$classe, p=0.60, list=FALSE)
+trainingSet <- training[inTrain,]
+validatingSet <- training[-inTrain,]
+```
+
+## Modelling
+In random forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. It is estimated internally, during the execution. So, we proced with the training the model (Random Forest) with the training data set.
+
+```{r }
+model <- randomForest(classe~.,data=trainingSet[,-1])
+print(model)
+
+```
+
+## Validating
+We validate the model using the validating obtained. We then cretae the confusion marix.
+
+```{r}
+
+predicted <- predict(model,newdata=validatingSet[,-c(1,ncol(validatingSet))])
+
+confusionmat <- confusionMatrix(predicted,validatingSet$classe)
+
+confusionmat
+
+```
+
+
+
+
+## Preparing the  Quiz Testing data
+Now that the model is validated using the Vlidation set, we proceed to use the testing data to understand how the model performs on the testing set.provided for the quiz. 
+```{r}
+
+testing <- testing[,appropriate]
+
+testing <- testing[,-ncol(testing)]
+
+testing <- testing[,-1]
+
+
+common <- intersect(names(trainingSet), names(testing)) 
+for (p in common) { 
+  if (class(trainingSet[[p]]) == "factor") { 
+    levels(testing[[p]]) <- levels(trainingSet[[p]]) 
+  } 
+}
+
+
+```
+
+
+##Predicting using quiz data
+Once the testing data is prepared, we go ahead and predict using the testing set.
+
+```{r}
+predictions <- predict(model,newdata = testing)
+
+```
+
+
+##Writing answers
+The answers are then written to a set of text files.
+
+
+```{r}
+write_files <- function(x) {
+  n <- length(x)
+  for (i in 1:n) {
+    filename <- paste0("problem_id", i, ".txt")
+    write.table(x[i], file=filename, quote=FALSE, row.names=FALSE,col.names=FALSE)
+  }
+}
+
+write_files(predictions)
+
+```
+
+
+
